@@ -1,5 +1,4 @@
 import streamlit as st
-import openai
 import requests
 import json
 import base64
@@ -99,15 +98,17 @@ RESPONSE STYLE:
 def get_bot_response(user_input):
     """Get response from OpenAI API"""
     try:
-        openai.api_key = OPENAI_API_KEY
+        # Initialize OpenAI client (modern approach)
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
 
         messages = [
             {"role": "system", "content": BOT_PERSONA},
             {"role": "user", "content": user_input}
         ]
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-transcribe",
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",  # Using a proper chat model
             messages=messages,
             max_tokens=150,
             temperature=0.7
@@ -169,7 +170,7 @@ def create_voice_recorder():
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: all 0.3s ease;
         ">
-            Start Recording 🎤 
+            🎤 Start Recording
         </button>
         <div id="status" style="margin-top: 10px; font-weight: bold;"></div>
         <audio id="audioPlayback" controls style="margin-top: 10px; display: none;"></audio>
@@ -217,7 +218,7 @@ def create_voice_recorder():
 
                 mediaRecorder.start();
                 isRecording = true;
-                recordBtn.textContent = 'Stop Recording ⏹️ ';
+                recordBtn.textContent = 'Stop Recording ⏹️';
                 recordBtn.style.background = 'linear-gradient(45deg, #e74c3c, #c0392b)';
                 status.textContent = 'Recording... Click to stop';
 
@@ -229,7 +230,7 @@ def create_voice_recorder():
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(track => track.stop());
             isRecording = false;
-            recordBtn.textContent = 'Start Recording 🎤 ';
+            recordBtn.textContent = '🎤 Start Recording';
             recordBtn.style.background = 'linear-gradient(45deg, #2E86AB, #A23B72)';
             status.textContent = 'Processing...';
         }
@@ -291,7 +292,7 @@ def main():
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Voice recorder
-    st.markdown("### 🎤 Or Record Your Voice")
+    st.markdown("###  Record Your Voice")
     st.components.v1.html(create_voice_recorder(), height=200)
 
     # Send button
@@ -340,7 +341,7 @@ def main():
                     bot_response = get_bot_response(question)
 
                 # Add response
-                st.session_state.messages.append({"role": "assistant", "content": question})
+                st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
                 # Increment message counter
                 st.session_state.message_counter += 1
