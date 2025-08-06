@@ -137,11 +137,16 @@ def get_bot_response(user_input):
 
 def text_to_speech_web(text):
     """Generate text-to-speech using browser's Speech Synthesis API"""
+    # Clean text - remove emojis and special characters
+    clean_text = ''.join(char for char in text if ord(char) < 127 and char.isprintable())
+    # Remove extra spaces
+    clean_text = ' '.join(clean_text.split())
+    
     # Return JavaScript code to use browser's built-in TTS
     js_code = f"""
     <script>
     function speakText() {{
-        const text = `{text.replace('`', '\\`').replace('\\', '\\\\').replace('"', '\\"')}`;
+        const text = `{clean_text.replace('`', '\\`').replace('\\', '\\\\').replace('"', '\\"')}`;
         
         // Stop any currently playing speech to prevent overlapping
         speechSynthesis.cancel();
@@ -163,16 +168,28 @@ def text_to_speech_web(text):
             utterance.voice = maleVoice;
         }}
 
-        utterance.rate = 0.9;
+        utterance.rate = 1.2;  // Faster speech
         utterance.pitch = 0.8;  // Lower pitch for more masculine sound
+        
+        // Ensure it only plays once
+        utterance.onend = function() {{
+            console.log('Speech finished');
+        }};
+        
+        utterance.onerror = function(event) {{
+            console.log('Speech error:', event.error);
+        }};
+        
         speechSynthesis.speak(utterance);
     }}
 
-    // Load voices and speak
+    // Load voices and speak - only once
     if (speechSynthesis.getVoices().length > 0) {{
         speakText();
     }} else {{
-        speechSynthesis.addEventListener('voiceschanged', speakText, {{ once: true }});
+        speechSynthesis.addEventListener('voiceschanged', function() {{
+            speakText();
+        }}, {{ once: true }});
     }}
     </script>
     """
@@ -336,6 +353,9 @@ def main():
             # Increment message counter
             st.session_state.message_counter += 1
 
+            # Auto-speak the response ONCE
+            st.components.v1.html(text_to_speech_web(bot_response), height=0)
+
             # Clear the text input and rerun to update interface
             st.rerun()
 
@@ -366,8 +386,8 @@ def main():
                 # Increment message counter
                 st.session_state.message_counter += 1
 
-                # Auto-speak the response (removed from here - only manual now)
-                # st.components.v1.html(text_to_speech_web(bot_response), height=0)
+                # Auto-speak the response ONCE when using sample questions
+                st.components.v1.html(text_to_speech_web(bot_response), height=0)
 
                 st.rerun()
 
