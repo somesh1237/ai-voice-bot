@@ -124,9 +124,69 @@ def get_bot_response(user_input):
     except Exception as e:
         return f"Sorry, I encountered an error: {str(e)}"
 
+def text_to_speech_web(text):
+    """Generate text-to-speech using browser's Speech Synthesis API"""
+    # Clean text - remove emojis and special characters
+    clean_text = ''.join(char for char in text if ord(char) < 127 and char.isprintable())
+    # Remove extra spaces
+    clean_text = ' '.join(clean_text.split())
+    
+    # Return JavaScript code to use browser's built-in TTS
+    js_code = f"""
+    <script>
+    function speakText() {{
+        const text = `{clean_text.replace('`', '\\`').replace('\\', '\\\\').replace('"', '\\"')}`;
+        
+        // Stop any currently playing speech to prevent overlapping
+        speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+
+        // Find a male voice (prioritize male voices)
+        const voices = speechSynthesis.getVoices();
+        const maleVoice = voices.find(voice => 
+            voice.name.toLowerCase().includes('male') ||
+            voice.name.toLowerCase().includes('david') ||
+            voice.name.toLowerCase().includes('alex') ||
+            voice.name.toLowerCase().includes('daniel') ||
+            (voice.lang.includes('en') && voice.name.toLowerCase().includes('indian')) ||
+            (voice.lang.includes('en-IN'))
+        );
+
+        if (maleVoice) {{
+            utterance.voice = maleVoice;
+        }}
+
+        utterance.rate = 1.2;  // Faster speech
+        utterance.pitch = 0.8;  // Lower pitch for more masculine sound
+        
+        // Ensure it only plays once
+        utterance.onend = function() {{
+            console.log('Speech finished');
+        }};
+        
+        utterance.onerror = function(event) {{
+            console.log('Speech error:', event.error);
+        }};
+        
+        speechSynthesis.speak(utterance);
+    }}
+
+    // Load voices and speak - only once
+    if (speechSynthesis.getVoices().length > 0) {{
+        speakText();
+    }} else {{
+        speechSynthesis.addEventListener('voiceschanged', function() {{
+            speakText();
+        }}, {{ once: true }});
+    }}
+    </script>
+    """
+    return js_code
+
 # Main app
 def main():
-    st.markdown("<h1 class='main-header'>🤖 AI Engineer Chat Bot</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>🤖 AI Engineer Voice Bot</h1>", unsafe_allow_html=True)
     st.markdown(
         "<p style='text-align: center; color: #666;'>Chat with an enthusiastic 23-year-old AI engineer from India!</p>",
         unsafe_allow_html=True)
@@ -136,6 +196,7 @@ def main():
         st.markdown("""
         1. **Type your message** in the text box
         2. **Click Send** to get a response
+        3. **Click the speaker button** to hear responses
 
         **Sample Questions:**
         - What should we know about your life story?
@@ -158,36 +219,56 @@ def main():
                 st.markdown(f"<div class='user-message'><strong>👤 You:</strong> {message['content']}</div>",
                             unsafe_allow_html=True)
             else:
-                st.markdown(f"<div class='bot-message'><strong>🤖 AI Engineer:</strong> {message['content']}</div>",
-                            unsafe_allow_html=True)
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"<div class='bot-message'><strong>🤖 AI Engineer:</strong> {message['content']}</div>",
+                                unsafe_allow_html=True)
+                with col2:
+                    # Use message index for unique keys to avoid duplicate widget IDs
+                    if st.button("🔊", key=f"speak_btn_{i}"):
+                        st.components.v1.html(text_to_speech_web(message['content']), height=0)
+
+    # Input methods
+    st.markdown("### 📝 Send a Message")
 
     # Text input
-    st.markdown("### 📝 Send a Message")
     user_input = st.text_input("Type your message here:", key="text_input",
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Send button
     send_clicked = st.button("Send Message", type="primary")
     
-    if send_clicked:
-        message_text = user_input.strip() if user_input else ""
+    if send_clicked and user_input.strip():
+        message_text = user_input.strip()
 
-        if message_text:
-            # Add user message to history
-            st.session_state.messages.append({"role": "user", "content": message_text})
+        # Add user message to history
+        st.session_state.messages.append({"role": "user", "content": message_text})
 
-            # Get bot response
-            with st.spinner("Thinking..."):
-                bot_response = get_bot_response(message_text)
+        # Get bot response
+        with st.spinner("Thinking..."):
+            bot_response = get_bot_response(message_text)
 
-            # Add bot response to history
-            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+        # Add bot response to history
+        st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
-            # Increment message counter
-            st.session_state.message_counter += 1
+        # Increment message counter
+        st.session_state.message_counter += 1
 
-            # Clear the text input and rerun to update interface
-            st.rerun()
+        # Clear the text input and rerun to update interface
+        st.rerun()
+
+    # Auto-speak the latest bot message if it's new
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
+        # Check if we just added a new message (after rerun)
+        if len(st.session_state.messages) > 0:
+            latest_message = st.session_state.messages[-1]["content"]
+            # Create a unique key for auto-speaking to avoid duplicates
+            auto_speak_key = f"auto_speak_{len(st.session_state.messages)}"
+            
+            # Only auto-speak if we haven't spoken this message yet
+            if auto_speak_key not in st.session_state:
+                st.session_state[auto_speak_key] = True
+                st.components.v1.html(text_to_speech_web(latest_message), height=0)
 
     # Sample questions buttons
     st.markdown("### 🎯 Try These Sample Questions")
@@ -228,7 +309,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<p style='text-align: center; color: #666; font-size: 12px;'>"
-        "Built by Somesh Nagar using Streamlit | Powered by OpenAI GPT-3.5"
+        "Built by Somesh Nagar using Streamlit | Powered by OpenAI GPT-3.5 | Voice powered by Web Speech API"
         "</p>",
         unsafe_allow_html=True
     )
