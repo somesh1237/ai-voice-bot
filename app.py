@@ -1,45 +1,8 @@
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
-def transcribe_audio(audio_base64):
-    """Transcribe audio using OpenAI Whisper API"""
-    try:
-        import io
-        
-        # Decode base64 audio
-        audio_data = base64.b64decode(audio_base64)
-        
-        # Create a file-like object
-        audio_file = io.BytesIO(audio_data)
-        audio_file.name = "audio.wav"  # Set a name for the file
-        
-        # Prepare the request for Whisper API
-        headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-        }
-        
-        files = {
-            "file": ("audio.wav", audio_file, "audio/wav"),
-            "model": (None, "whisper-1"),
-        }
-        
-        response = requests.post(
-            "https://api.openai.com/v1/audio/transcriptions",
-            headers=headers,
-            files=files,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            return result.get("text", "Could not transcribe audio")
-        else:
-            return f"Transcription failed: {response.status_code}"
-            
-    except Exception as e:
-        return f"Error transcribing audio: {str(e)}"import streamlit as st
+import streamlit as st
 import requests
 import json
 import base64
+import io
 
 # Page configuration
 st.set_page_config(
@@ -103,17 +66,17 @@ if 'messages' not in st.session_state:
 if 'message_counter' not in st.session_state:
     st.session_state.message_counter = 0
 
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+
 def transcribe_audio(audio_base64):
     """Transcribe audio using OpenAI Whisper API"""
     try:
-        import io
-        
         # Decode base64 audio
         audio_data = base64.b64decode(audio_base64)
         
         # Create a file-like object
         audio_file = io.BytesIO(audio_data)
-        audio_file.name = "audio.wav"  # Set a name for the file
+        audio_file.name = "audio.wav"
         
         # Prepare the request for Whisper API
         headers = {
