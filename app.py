@@ -454,7 +454,7 @@ def main():
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Voice recorder
-    st.markdown("### 🎤 Record Your Voice")
+    st.markdown("### 🎤 Or Record Your Voice")
     st.components.v1.html(create_voice_recorder(), height=200)
     
     # Handle voice message processing
