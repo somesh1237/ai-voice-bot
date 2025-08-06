@@ -1,4 +1,5 @@
 import streamlit as st
+from openai import OpenAI
 import requests
 import json
 import base64
@@ -99,7 +100,6 @@ def get_bot_response(user_input):
     """Get response from OpenAI API"""
     try:
         # Initialize OpenAI client (modern approach)
-        from openai import OpenAI
         client = OpenAI(api_key=OPENAI_API_KEY)
 
         messages = [
@@ -218,7 +218,7 @@ def create_voice_recorder():
 
                 mediaRecorder.start();
                 isRecording = true;
-                recordBtn.textContent = 'Stop Recording ⏹️';
+                recordBtn.textContent = '⏹️ Stop Recording';
                 recordBtn.style.background = 'linear-gradient(45deg, #e74c3c, #c0392b)';
                 status.textContent = 'Recording... Click to stop';
 
@@ -292,7 +292,7 @@ def main():
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Voice recorder
-    st.markdown("###  Record Your Voice")
+    st.markdown("### 🎤 Or Record Your Voice")
     st.components.v1.html(create_voice_recorder(), height=200)
 
     # Send button
