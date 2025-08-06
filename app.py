@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS for better UI
+# Custom CSS for better UI with darker message colors
 st.markdown("""
 <style>
 .main-header {
@@ -26,16 +26,20 @@ st.markdown("""
     margin: 10px 0;
 }
 .user-message {
-    background-color: #DCF8C6;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px 0;
+    background-color: #2c3e50;
+    color: white;
+    padding: 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #3498db;
 }
 .bot-message {
-    background-color: #E3F2FD;
-    padding: 10px;
-    border-radius: 10px;
-    margin: 5px 0;
+    background-color: #34495e;
+    color: white;
+    padding: 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #e74c3c;
 }
 .stButton > button {
     background-color: #2E86AB;
@@ -59,9 +63,10 @@ st.markdown("""
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
+if 'message_counter' not in st.session_state:
+    st.session_state.message_counter = 0
 
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-
 
 # Bot persona and context
 BOT_PERSONA = """You are a 23-year-old enthusiastic AI engineer from India. Here are your key characteristics:
@@ -91,7 +96,6 @@ RESPONSE STYLE:
 - Show your Indian background naturally in your responses
 """
 
-
 def get_bot_response(user_input):
     """Get response from OpenAI API"""
     try:
@@ -114,14 +118,13 @@ def get_bot_response(user_input):
     except Exception as e:
         return f"Sorry, I encountered an error: {str(e)}"
 
-
 def text_to_speech_web(text):
     """Generate text-to-speech using browser's Speech Synthesis API"""
     # Return JavaScript code to use browser's built-in TTS
     js_code = f"""
     <script>
     function speakText() {{
-        const text = `{text.replace('`', '/`')}`;
+        const text = `{text.replace('`', '\\`').replace('\\', '\\\\').replace('"', '\\"')}`;
         const utterance = new SpeechSynthesisUtterance(text);
 
         // Try to find an Indian or male voice
@@ -151,7 +154,6 @@ def text_to_speech_web(text):
     """
     return js_code
 
-
 def create_voice_recorder():
     """Create a voice recorder using HTML5 and JavaScript"""
     recorder_html = """
@@ -167,7 +169,7 @@ def create_voice_recorder():
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             transition: all 0.3s ease;
         ">
-            🎤 Start Recording
+            Start Recording 🎤 
         </button>
         <div id="status" style="margin-top: 10px; font-weight: bold;"></div>
         <audio id="audioPlayback" controls style="margin-top: 10px; display: none;"></audio>
@@ -215,7 +217,7 @@ def create_voice_recorder():
 
                 mediaRecorder.start();
                 isRecording = true;
-                recordBtn.textContent = '⏹️ Stop Recording';
+                recordBtn.textContent = 'Stop Recording ⏹️ ';
                 recordBtn.style.background = 'linear-gradient(45deg, #e74c3c, #c0392b)';
                 status.textContent = 'Recording... Click to stop';
 
@@ -227,7 +229,7 @@ def create_voice_recorder():
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(track => track.stop());
             isRecording = false;
-            recordBtn.textContent = '🎤 Start Recording';
+            recordBtn.textContent = 'Start Recording 🎤 ';
             recordBtn.style.background = 'linear-gradient(45deg, #2E86AB, #A23B72)';
             status.textContent = 'Processing...';
         }
@@ -235,7 +237,6 @@ def create_voice_recorder():
     </script>
     """
     return recorder_html
-
 
 # Main app
 def main():
@@ -268,17 +269,18 @@ def main():
     chat_container = st.container()
 
     with chat_container:
-        for message in st.session_state.messages:
+        for i, message in enumerate(st.session_state.messages):
             if message["role"] == "user":
-                st.markdown(f"<div class='user-message'><strong>You:</strong> {message['content']}</div>",
+                st.markdown(f"<div class='user-message'><strong>👤 You:</strong> {message['content']}</div>",
                             unsafe_allow_html=True)
             else:
                 col1, col2 = st.columns([4, 1])
                 with col1:
-                    st.markdown(f"<div class='bot-message'><strong>AI Engineer:</strong> {message['content']}</div>",
+                    st.markdown(f"<div class='bot-message'><strong>🤖 AI Engineer:</strong> {message['content']}</div>",
                                 unsafe_allow_html=True)
                 with col2:
-                    if st.button(f"🔊", key=f"speak_{len(st.session_state.messages)}_{message['content'][:10]}"):
+                    # Use message index for unique keys to avoid duplicate widget IDs
+                    if st.button("🔊", key=f"speak_btn_{i}"):
                         st.components.v1.html(text_to_speech_web(message['content']), height=0)
 
     # Input methods
@@ -307,10 +309,13 @@ def main():
             # Add bot response to history
             st.session_state.messages.append({"role": "assistant", "content": bot_response})
 
+            # Increment message counter
+            st.session_state.message_counter += 1
+
             # Auto-speak the response
             st.components.v1.html(text_to_speech_web(bot_response), height=0)
 
-            # Rerun to update the interface
+            # Clear the text input by rerunning
             st.rerun()
 
     # Sample questions buttons
@@ -326,7 +331,7 @@ def main():
     cols = st.columns(2)
     for i, question in enumerate(sample_questions):
         with cols[i % 2]:
-            if st.button(question, key=f"sample_{i}"):
+            if st.button(question, key=f"sample_question_{i}"):
                 # Add question to messages
                 st.session_state.messages.append({"role": "user", "content": question})
 
@@ -335,7 +340,10 @@ def main():
                     bot_response = get_bot_response(question)
 
                 # Add response
-                st.session_state.messages.append({"role": "assistant", "content": bot_response})
+                st.session_state.messages.append({"role": "assistant", "content": question})
+
+                # Increment message counter
+                st.session_state.message_counter += 1
 
                 # Auto-speak the response
                 st.components.v1.html(text_to_speech_web(bot_response), height=0)
@@ -345,6 +353,7 @@ def main():
     # Clear chat button
     if st.button("🗑️ Clear Chat History"):
         st.session_state.messages = []
+        st.session_state.message_counter = 0
         st.rerun()
 
     # Footer
@@ -356,8 +365,5 @@ def main():
         unsafe_allow_html=True
     )
 
-
 if __name__ == "__main__":
-
     main()
-
