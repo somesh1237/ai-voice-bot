@@ -1,5 +1,4 @@
 import streamlit as st
-from openai import OpenAI
 import requests
 import json
 import base64
@@ -97,25 +96,42 @@ RESPONSE STYLE:
 """
 
 def get_bot_response(user_input):
-    """Get response from OpenAI API"""
+    """Get response from OpenAI API using requests"""
     try:
-        # Initialize OpenAI client (modern approach)
-        client = OpenAI(api_key=OPENAI_API_KEY)
-
-        messages = [
-            {"role": "system", "content": BOT_PERSONA},
-            {"role": "user", "content": user_input}
-        ]
-
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Using a proper chat model
-            messages=messages,
-            max_tokens=150,
-            temperature=0.7
+        # Using requests instead of OpenAI library for better compatibility
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {"role": "system", "content": BOT_PERSONA},
+                {"role": "user", "content": user_input}
+            ],
+            "max_tokens": 150,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
         )
-
-        return response.choices[0].message.content.strip()
-
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result["choices"][0]["message"]["content"].strip()
+        else:
+            error_info = response.json() if response.content else {"error": "Unknown error"}
+            return f"API Error ({response.status_code}): {error_info.get('error', {}).get('message', 'Unknown error')}"
+            
+    except requests.exceptions.Timeout:
+        return "Request timed out. Please try again."
+    except requests.exceptions.RequestException as e:
+        return f"Network error: {str(e)}"
     except Exception as e:
         return f"Sorry, I encountered an error: {str(e)}"
 
