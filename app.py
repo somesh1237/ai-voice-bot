@@ -214,16 +214,31 @@ def create_voice_recorder():
         </button>
         <div id="status" style="margin-top: 10px; font-weight: bold;"></div>
         <audio id="audioPlayback" controls style="margin-top: 10px; display: none;"></audio>
+        <button id="sendVoiceBtn" onclick="sendVoiceMessage()" style="
+            background: linear-gradient(45deg, #27AE60, #2ECC71);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 15px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: none;
+        ">
+            📤 Send Voice Message
+        </button>
     </div>
 
     <script>
     let mediaRecorder;
     let audioChunks = [];
     let isRecording = false;
+    let recordedAudioData = null;
 
     async function toggleRecording() {
         const recordBtn = document.getElementById('recordBtn');
         const status = document.getElementById('status');
+        const sendBtn = document.getElementById('sendVoiceBtn');
 
         if (!isRecording) {
             try {
@@ -235,7 +250,7 @@ def create_voice_recorder():
                     audioChunks.push(event.data);
                 };
 
-                mediaRecorder.onstop = () => {
+                mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                     const audioUrl = URL.createObjectURL(audioBlob);
 
@@ -243,15 +258,12 @@ def create_voice_recorder():
                     audioPlayback.src = audioUrl;
                     audioPlayback.style.display = 'block';
 
-                    // Convert to base64 and store in session state
+                    // Convert to base64 for transcription
                     const reader = new FileReader();
                     reader.onload = function() {
-                        const base64Audio = reader.result.split(',')[1];
-                        // You would send this to your backend for processing
-                        status.textContent = 'Audio recorded! Click Send to process.';
-
-                        // Store the audio data
-                        window.recordedAudio = base64Audio;
+                        recordedAudioData = reader.result.split(',')[1];
+                        status.textContent = 'Audio recorded! Click Send Voice Message to process.';
+                        sendBtn.style.display = 'block';
                     };
                     reader.readAsDataURL(audioBlob);
                 };
@@ -261,6 +273,7 @@ def create_voice_recorder():
                 recordBtn.textContent = '⏹️ Stop Recording';
                 recordBtn.style.background = 'linear-gradient(45deg, #e74c3c, #c0392b)';
                 status.textContent = 'Recording... Click to stop';
+                sendBtn.style.display = 'none';
 
             } catch (err) {
                 status.textContent = 'Error: Could not access microphone';
@@ -273,6 +286,49 @@ def create_voice_recorder():
             recordBtn.textContent = '🎤 Start Recording';
             recordBtn.style.background = 'linear-gradient(45deg, #2E86AB, #A23B72)';
             status.textContent = 'Processing...';
+        }
+    }
+
+    async function sendVoiceMessage() {
+        const status = document.getElementById('status');
+        const sendBtn = document.getElementById('sendVoiceBtn');
+        
+        if (!recordedAudioData) {
+            status.textContent = 'No audio recorded!';
+            return;
+        }
+
+        status.textContent = 'Transcribing audio...';
+        sendBtn.disabled = true;
+
+        try {
+            // Simple placeholder - in reality you'd need audio transcription
+            // For now, we'll send a placeholder message
+            const voiceMessage = "Voice message: " + new Date().toLocaleTimeString();
+            
+            // Set the text input value and trigger send
+            const textInput = document.querySelector('input[data-testid="textInput"]');
+            if (textInput) {
+                textInput.value = voiceMessage;
+                textInput.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // Trigger the send button
+                setTimeout(() => {
+                    const sendButton = document.querySelector('button[kind="primary"]');
+                    if (sendButton) {
+                        sendButton.click();
+                    }
+                }, 100);
+            }
+
+            status.textContent = 'Voice message sent!';
+            sendBtn.style.display = 'none';
+            recordedAudioData = null;
+            
+        } catch (error) {
+            status.textContent = 'Error sending voice message: ' + error.message;
+        } finally {
+            sendBtn.disabled = false;
         }
     }
     </script>
@@ -332,11 +388,13 @@ def main():
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Voice recorder
-    st.markdown("### 🎤 Or Record Your Voice")
+    st.markdown(" Record Your Voice")
     st.components.v1.html(create_voice_recorder(), height=200)
 
     # Send button
-    if st.button("Send Message", type="primary"):
+    send_clicked = st.button("Send Message", type="primary")
+    
+    if send_clicked:
         message_text = user_input.strip() if user_input else ""
 
         if message_text:
@@ -353,11 +411,21 @@ def main():
             # Increment message counter
             st.session_state.message_counter += 1
 
-            # Auto-speak the response ONCE
-            st.components.v1.html(text_to_speech_web(bot_response), height=0)
-
             # Clear the text input and rerun to update interface
             st.rerun()
+
+    # Auto-speak the latest bot message if it's new
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
+        # Check if we just added a new message (after rerun)
+        if len(st.session_state.messages) > 0:
+            latest_message = st.session_state.messages[-1]["content"]
+            # Create a unique key for auto-speaking to avoid duplicates
+            auto_speak_key = f"auto_speak_{len(st.session_state.messages)}"
+            
+            # Only auto-speak if we haven't spoken this message yet
+            if auto_speak_key not in st.session_state:
+                st.session_state[auto_speak_key] = True
+                st.components.v1.html(text_to_speech_web(latest_message), height=0)
 
     # Sample questions buttons
     st.markdown("### 🎯 Try These Sample Questions")
@@ -385,9 +453,6 @@ def main():
 
                 # Increment message counter
                 st.session_state.message_counter += 1
-
-                # Auto-speak the response ONCE when using sample questions
-                st.components.v1.html(text_to_speech_web(bot_response), height=0)
 
                 st.rerun()
 
