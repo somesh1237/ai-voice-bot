@@ -1,4 +1,42 @@
-import streamlit as st
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+
+def transcribe_audio(audio_base64):
+    """Transcribe audio using OpenAI Whisper API"""
+    try:
+        import io
+        
+        # Decode base64 audio
+        audio_data = base64.b64decode(audio_base64)
+        
+        # Create a file-like object
+        audio_file = io.BytesIO(audio_data)
+        audio_file.name = "audio.wav"  # Set a name for the file
+        
+        # Prepare the request for Whisper API
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+        }
+        
+        files = {
+            "file": ("audio.wav", audio_file, "audio/wav"),
+            "model": (None, "whisper-1"),
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers=headers,
+            files=files,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("text", "Could not transcribe audio")
+        else:
+            return f"Transcription failed: {response.status_code}"
+            
+    except Exception as e:
+        return f"Error transcribing audio: {str(e)}"import streamlit as st
 import requests
 import json
 import base64
@@ -65,7 +103,43 @@ if 'messages' not in st.session_state:
 if 'message_counter' not in st.session_state:
     st.session_state.message_counter = 0
 
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+def transcribe_audio(audio_base64):
+    """Transcribe audio using OpenAI Whisper API"""
+    try:
+        import io
+        
+        # Decode base64 audio
+        audio_data = base64.b64decode(audio_base64)
+        
+        # Create a file-like object
+        audio_file = io.BytesIO(audio_data)
+        audio_file.name = "audio.wav"  # Set a name for the file
+        
+        # Prepare the request for Whisper API
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+        }
+        
+        files = {
+            "file": ("audio.wav", audio_file, "audio/wav"),
+            "model": (None, "whisper-1"),
+        }
+        
+        response = requests.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers=headers,
+            files=files,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("text", "Could not transcribe audio")
+        else:
+            return f"Transcription failed: {response.status_code}"
+            
+    except Exception as e:
+        return f"Error transcribing audio: {str(e)}"
 
 # Bot persona and context
 BOT_PERSONA = """You are a 23-year-old enthusiastic AI engineer from India. Here are your key characteristics:
@@ -298,32 +372,24 @@ def create_voice_recorder():
             return;
         }
 
-        status.textContent = 'Transcribing audio...';
+        status.textContent = 'Sending audio for transcription...';
         sendBtn.disabled = true;
 
         try {
-            // Simple placeholder - in reality you'd need audio transcription
-            // For now, we'll send a placeholder message
-            const voiceMessage = "Voice message: " + new Date().toLocaleTimeString();
-            
-            // Set the text input value and trigger send
-            const textInput = document.querySelector('input[data-testid="textInput"]');
-            if (textInput) {
-                textInput.value = voiceMessage;
-                textInput.dispatchEvent(new Event('input', { bubbles: true }));
-                
-                // Trigger the send button
-                setTimeout(() => {
-                    const sendButton = document.querySelector('button[kind="primary"]');
-                    if (sendButton) {
-                        sendButton.click();
-                    }
-                }, 100);
+            // Send the audio data to Streamlit for processing
+            const hiddenInput = document.querySelector('input[data-testid*="hidden_audio_data"]');
+            if (hiddenInput) {
+                hiddenInput.value = recordedAudioData;
+                hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
-            status.textContent = 'Voice message sent!';
+            status.textContent = 'Voice message sent for processing!';
             sendBtn.style.display = 'none';
             recordedAudioData = null;
+            
+            // Hide the audio playback
+            document.getElementById('audioPlayback').style.display = 'none';
             
         } catch (error) {
             status.textContent = 'Error sending voice message: ' + error.message;
@@ -388,8 +454,41 @@ def main():
                                placeholder="Ask me anything about my background, skills, or projects!")
 
     # Voice recorder
-    st.markdown(" Record Your Voice")
+    st.markdown("### 🎤 Record Your Voice")
     st.components.v1.html(create_voice_recorder(), height=200)
+    
+    # Handle voice message processing
+    if 'pending_audio' in st.session_state and st.session_state.pending_audio:
+        audio_data = st.session_state.pending_audio
+        st.session_state.pending_audio = None  # Clear the pending audio
+        
+        with st.spinner("🎧 Transcribing your voice message..."):
+            transcribed_text = transcribe_audio(audio_data)
+        
+        if transcribed_text and not transcribed_text.startswith("Error") and not transcribed_text.startswith("Transcription failed"):
+            # Add user message to history
+            st.session_state.messages.append({"role": "user", "content": transcribed_text})
+            
+            # Get bot response
+            with st.spinner("Thinking..."):
+                bot_response = get_bot_response(transcribed_text)
+            
+            # Add bot response to history
+            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+            
+            # Increment message counter
+            st.session_state.message_counter += 1
+            
+            st.rerun()
+        else:
+            st.error(f"Failed to transcribe audio: {transcribed_text}")
+    
+    # Check for audio data from JavaScript
+    audio_data_js = st.text_input("", key="hidden_audio_data", label_visibility="hidden")
+    if audio_data_js and audio_data_js != "":
+        # Process the audio data
+        st.session_state.pending_audio = audio_data_js
+        st.rerun()
 
     # Send button
     send_clicked = st.button("Send Message", type="primary")
