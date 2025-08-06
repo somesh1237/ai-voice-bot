@@ -59,15 +59,9 @@ st.markdown("""
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
-# Get OpenAI API key from Streamlit secrets
-try:
-    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-except:
-    # Fallback to hardcoded key for local development
-    OPENAI_API_KEY = "your-openai-api-key-here"  # Replace with your actual API key
-    if OPENAI_API_KEY == "your-openai-api-key-here":
-        st.error("⚠️ Please set your OpenAI API key in the code or Streamlit secrets.")
-        st.stop()
+
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+
 
 # Bot persona and context
 BOT_PERSONA = """You are a 23-year-old enthusiastic AI engineer from India. Here are your key characteristics:
@@ -364,4 +358,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
