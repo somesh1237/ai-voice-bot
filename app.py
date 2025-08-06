@@ -94,7 +94,7 @@ def get_bot_response(user_input):
         }
         
         data = {
-            "model": "gpt-4o-mini-realtime",
+            "model": "gpt-4o-mini",
             "messages": [
                 {"role": "system", "content": BOT_PERSONA},
                 {"role": "user", "content": user_input}
@@ -316,4 +316,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
