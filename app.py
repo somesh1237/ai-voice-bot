@@ -142,22 +142,29 @@ def text_to_speech_web(text):
     <script>
     function speakText() {{
         const text = `{text.replace('`', '\\`').replace('\\', '\\\\').replace('"', '\\"')}`;
+        
+        // Stop any currently playing speech to prevent overlapping
+        speechSynthesis.cancel();
+        
         const utterance = new SpeechSynthesisUtterance(text);
 
-        // Try to find an Indian or male voice
+        // Find a male voice (prioritize male voices)
         const voices = speechSynthesis.getVoices();
-        const indianVoice = voices.find(voice => 
-            voice.lang.includes('en-IN') || 
-            voice.name.toLowerCase().includes('indian') ||
-            (voice.name.toLowerCase().includes('male') && voice.lang.includes('en'))
+        const maleVoice = voices.find(voice => 
+            voice.name.toLowerCase().includes('male') ||
+            voice.name.toLowerCase().includes('david') ||
+            voice.name.toLowerCase().includes('alex') ||
+            voice.name.toLowerCase().includes('daniel') ||
+            (voice.lang.includes('en') && voice.name.toLowerCase().includes('indian')) ||
+            (voice.lang.includes('en-IN'))
         );
 
-        if (indianVoice) {{
-            utterance.voice = indianVoice;
+        if (maleVoice) {{
+            utterance.voice = maleVoice;
         }}
 
         utterance.rate = 0.9;
-        utterance.pitch = 1;
+        utterance.pitch = 0.8;  // Lower pitch for more masculine sound
         speechSynthesis.speak(utterance);
     }}
 
@@ -312,7 +319,7 @@ def main():
     st.components.v1.html(create_voice_recorder(), height=200)
 
     # Send button
-    if st.button("Send Message", type="primary") or user_input:
+    if st.button("Send Message", type="primary"):
         message_text = user_input.strip() if user_input else ""
 
         if message_text:
@@ -329,10 +336,7 @@ def main():
             # Increment message counter
             st.session_state.message_counter += 1
 
-            # Auto-speak the response
-            st.components.v1.html(text_to_speech_web(bot_response), height=0)
-
-            # Clear the text input by rerunning
+            # Clear the text input and rerun to update interface
             st.rerun()
 
     # Sample questions buttons
@@ -362,8 +366,8 @@ def main():
                 # Increment message counter
                 st.session_state.message_counter += 1
 
-                # Auto-speak the response
-                st.components.v1.html(text_to_speech_web(bot_response), height=0)
+                # Auto-speak the response (removed from here - only manual now)
+                # st.components.v1.html(text_to_speech_web(bot_response), height=0)
 
                 st.rerun()
 
